@@ -18,8 +18,6 @@ func main() {
 			return userErr
 		}
 
-		ctx.Export("userId", user.ID())
-
 		group, errGroup := iam.NewGroup(ctx, "developers", &iam.GroupArgs{
 			Path: pulumi.String("/users/"),
 		})
@@ -27,6 +25,15 @@ func main() {
 		if errGroup != nil {
 			return errGroup
 		}
+
+    _, groupPolicyAttachmentErr := iam.NewGroupPolicyAttachment(ctx, "developers-group-policy-attachment", &iam.GroupPolicyAttachmentArgs{
+      Group: group.Name,
+      PolicyArn: pulumi.String("arn:aws:iam::aws:policy/AmazonEC2FullAccess"),
+    })
+
+    if groupPolicyAttachmentErr != nil {
+      return groupPolicyAttachmentErr
+    }
 
 		_, membershipErr := iam.NewGroupMembership(ctx, "team", &iam.GroupMembershipArgs{
 			Group: group.Name,
@@ -38,9 +45,9 @@ func main() {
 		if membershipErr != nil {
 			return membershipErr
 		}
-
-    // TODO: add ec2 full access policy to dev group
 		
+		ctx.Export("userId", user.ID())
+
 		return nil
 	})
 }
