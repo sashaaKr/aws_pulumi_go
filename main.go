@@ -8,6 +8,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+const INTERNET_CIRD = "0.0.0.0/0"
+
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		user, userErr := iam.NewUser(ctx, "my-user", &iam.UserArgs{
@@ -144,80 +146,117 @@ func createRole(ctx *pulumi.Context) error {
 
 func createVPC(ctx *pulumi.Context) error {
 	vpc, err := ec2.NewVpc(ctx, "main", &ec2.VpcArgs{
-    Tags: pulumi.StringMap{
-      "Name": pulumi.String("custom-test-vpc"),
-    },
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("custom-test-vpc"),
+		},
 		CidrBlock: pulumi.String("10.2.0.0/16"),
 	})
 	if err != nil {
 		return err
 	}
 
-  publicASubnet, subnetPublicAErr := ec2.NewSubnet(ctx, "publicA", &ec2.SubnetArgs{
-    VpcId: vpc.ID(),
-    AvailabilityZone: pulumi.String("us-east-1a"),
-    CidrBlock: pulumi.String("10.2.0.0/24"),
-    Tags: pulumi.StringMap{
-      "Name": pulumi.String("PublicA"),
-    },
-  })
-  if subnetPublicAErr != nil {
-    return subnetPublicAErr
-  }
+	publicASubnet, subnetPublicAErr := ec2.NewSubnet(ctx, "publicA", &ec2.SubnetArgs{
+		VpcId:            vpc.ID(),
+		AvailabilityZone: pulumi.String("us-east-1a"),
+		CidrBlock:        pulumi.String("10.2.0.0/24"),
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("PublicA"),
+		},
+	})
+	if subnetPublicAErr != nil {
+		return subnetPublicAErr
+	}
 
-  publicBSubnet, subnetPublicBErr := ec2.NewSubnet(ctx, "publicB", &ec2.SubnetArgs{
-    VpcId: vpc.ID(),
-    AvailabilityZone: pulumi.String("us-east-1b"),
-    CidrBlock: pulumi.String("10.2.1.0/24"),
-    Tags: pulumi.StringMap{
-      "Name": pulumi.String("PublicB"),
-    },
-  })
-  if subnetPublicBErr != nil {
-    return subnetPublicAErr
-  }
+	publicBSubnet, subnetPublicBErr := ec2.NewSubnet(ctx, "publicB", &ec2.SubnetArgs{
+		VpcId:            vpc.ID(),
+		AvailabilityZone: pulumi.String("us-east-1b"),
+		CidrBlock:        pulumi.String("10.2.1.0/24"),
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("PublicB"),
+		},
+	})
+	if subnetPublicBErr != nil {
+		return subnetPublicAErr
+	}
 
-  gw, internetGatewayErr := ec2.NewInternetGateway(ctx, "custom-internet-gw", &ec2.InternetGatewayArgs{
-    VpcId: vpc.ID(),
-    Tags: pulumi.StringMap{
-      "Name": pulumi.String("custom-gw"),
-    },
-  })
-  if internetGatewayErr != nil {
-    return err
-  }
+	gw, internetGatewayErr := ec2.NewInternetGateway(ctx, "custom-internet-gw", &ec2.InternetGatewayArgs{
+		VpcId: vpc.ID(),
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("custom-gw"),
+		},
+	})
+	if internetGatewayErr != nil {
+		return err
+	}
 
-  routeTable, routeTableErr := ec2.NewRouteTable(ctx, "public-traffic", &ec2.RouteTableArgs{
-    VpcId: vpc.ID(),
-    Routes: ec2.RouteTableRouteArray{
-      &ec2.RouteTableRouteArgs{
-        CidrBlock: pulumi.String("0.0.0.0/0"),
-        GatewayId: gw.ID(),
-      },
-    },
-    Tags: pulumi.StringMap{
-      "Name": pulumi.String("public-traffic"),
-    },
-  })
-  if routeTableErr != nil {
-    return routeTableErr
-  }
+	routeTable, routeTableErr := ec2.NewRouteTable(ctx, "public-traffic", &ec2.RouteTableArgs{
+		VpcId: vpc.ID(),
+		Routes: ec2.RouteTableRouteArray{
+			&ec2.RouteTableRouteArgs{
+				CidrBlock: pulumi.String(INTERNET_CIRD),
+				GatewayId: gw.ID(),
+			},
+		},
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("public-traffic"),
+		},
+	})
+	if routeTableErr != nil {
+		return routeTableErr
+	}
 
-  _, routeTableAssociationAErr := ec2.NewRouteTableAssociation(ctx, "routeTableAssociationA", &ec2.RouteTableAssociationArgs{
-    SubnetId:     publicASubnet.ID(),
-    RouteTableId: routeTable.ID(),
-  })
-  if routeTableAssociationAErr != nil {
-    return routeTableAssociationAErr
-  }
+	_, routeTableAssociationAErr := ec2.NewRouteTableAssociation(ctx, "routeTableAssociationA", &ec2.RouteTableAssociationArgs{
+		SubnetId:     publicASubnet.ID(),
+		RouteTableId: routeTable.ID(),
+	})
+	if routeTableAssociationAErr != nil {
+		return routeTableAssociationAErr
+	}
 
-  _, routeTableAssociationBErr := ec2.NewRouteTableAssociation(ctx, "routeTableAssociationB", &ec2.RouteTableAssociationArgs{
-    SubnetId:     publicBSubnet.ID(),
-    RouteTableId: routeTable.ID(),
-  })
-  if routeTableAssociationBErr != nil {
-    return routeTableAssociationAErr
-  }
+	_, routeTableAssociationBErr := ec2.NewRouteTableAssociation(ctx, "routeTableAssociationB", &ec2.RouteTableAssociationArgs{
+		SubnetId:     publicBSubnet.ID(),
+		RouteTableId: routeTable.ID(),
+	})
+	if routeTableAssociationBErr != nil {
+		return routeTableAssociationAErr
+	}
+
+	_, aclErr := ec2.NewNetworkAcl(ctx, "custom-acl", &ec2.NetworkAclArgs{
+		VpcId:     vpc.ID(),
+		Tags:      pulumi.StringMap{"Name": pulumi.String("custom-acl")},
+		SubnetIds: pulumi.StringArray{publicASubnet.ID(), publicBSubnet.ID()},
+		Ingress: ec2.NetworkAclIngressArray{
+			&ec2.NetworkAclIngressArgs{
+				RuleNo:    pulumi.Int(100),
+				Protocol:  pulumi.String("tcp"),
+				Action:    pulumi.String("allow"),
+				FromPort:  pulumi.Int(80),
+				ToPort:    pulumi.Int(80),
+				CidrBlock: pulumi.String(INTERNET_CIRD),
+			},
+			&ec2.NetworkAclIngressArgs{
+				RuleNo:    pulumi.Int(101),
+				Protocol:  pulumi.String("tcp"),
+				Action:    pulumi.String("allow"),
+				FromPort:  pulumi.Int(443),
+				ToPort:    pulumi.Int(443),
+				CidrBlock: pulumi.String(INTERNET_CIRD),
+			},
+		},
+		Egress: ec2.NetworkAclEgressArray{
+			&ec2.NetworkAclEgressArgs{
+				Protocol: pulumi.String("tcp"),
+				RuleNo:   pulumi.Int(100),
+				Action:   pulumi.String("allow"),
+				FromPort: pulumi.Int(1024),
+				ToPort:   pulumi.Int(65535),
+				CidrBlock: pulumi.String(INTERNET_CIRD),
+			},
+		},
+	})
+	if aclErr != nil {
+		return aclErr
+	}
 
 	return nil
 }
