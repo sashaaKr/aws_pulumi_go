@@ -245,11 +245,11 @@ func createVPC(ctx *pulumi.Context) error {
 		},
 		Egress: ec2.NetworkAclEgressArray{
 			&ec2.NetworkAclEgressArgs{
-				Protocol: pulumi.String("tcp"),
-				RuleNo:   pulumi.Int(100),
-				Action:   pulumi.String("allow"),
-				FromPort: pulumi.Int(1024),
-				ToPort:   pulumi.Int(65535),
+				Protocol:  pulumi.String("tcp"),
+				RuleNo:    pulumi.Int(100),
+				Action:    pulumi.String("allow"),
+				FromPort:  pulumi.Int(1024),
+				ToPort:    pulumi.Int(65535),
 				CidrBlock: pulumi.String(INTERNET_CIRD),
 			},
 		},
