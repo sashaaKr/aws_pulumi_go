@@ -258,5 +258,45 @@ func createVPC(ctx *pulumi.Context) error {
 		return aclErr
 	}
 
+	_, scErr := ec2.NewSecurityGroup(ctx, "custom-sg", &ec2.SecurityGroupArgs{
+		Description: pulumi.String("custom-sg"),
+		VpcId:       vpc.ID(),
+		Tags: pulumi.StringMap{
+			"Name": pulumi.String("Custom SC"),
+		},
+		Ingress: ec2.SecurityGroupIngressArray{
+			&ec2.SecurityGroupIngressArgs{
+				Description: pulumi.String("custom-sg-ingress-80"),
+				FromPort:    pulumi.Int(80),
+				ToPort:      pulumi.Int(80),
+				CidrBlocks: pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
+				Protocol:   pulumi.String("tcp"),
+			},
+			&ec2.SecurityGroupIngressArgs{
+				Description: pulumi.String("custom-sg-ingress-443"),
+				FromPort:    pulumi.Int(443),
+				ToPort:      pulumi.Int(443),
+				CidrBlocks: pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
+				Protocol:  pulumi.String("tcp"),
+			},
+		},
+		Egress: ec2.SecurityGroupEgressArray{
+			&ec2.SecurityGroupEgressArgs{
+				FromPort: pulumi.Int(0),
+				ToPort:   pulumi.Int(0),
+				Protocol: pulumi.String("-1"),
+				CidrBlocks: pulumi.StringArray{
+					pulumi.String(INTERNET_CIRD),
+				},
+				// Ipv6CidrBlocks: pulumi.StringArray{
+				// 	pulumi.String("::/0"),
+				// },
+			},
+		},
+	})
+	if scErr != nil {
+		return scErr
+	}
+
 	return nil
 }
