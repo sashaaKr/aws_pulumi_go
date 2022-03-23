@@ -12,6 +12,12 @@ const INTERNET_CIRD = "0.0.0.0/0"
 
 func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
+		deployAmiErr := deployIAM(ctx)
+
+		if (deployAmiErr != nil) {
+			return deployAmiErr
+		}
+
 		user, userErr := iam.NewUser(ctx, "my-user", &iam.UserArgs{
 			Path: pulumi.String("/system/"),
 			Tags: pulumi.StringMap{
@@ -105,6 +111,48 @@ func main() {
 
 		return nil
 	})
+}
+
+func deployIAM(ctx *pulumi.Context) error {
+	adminGroup, adminGroupErr := iam.NewGroup(ctx, "Admins", &iam.GroupArgs{
+		Path: pulumi.String("/users/"),
+	})
+
+	if (adminGroupErr != nil) { 
+		return adminGroupErr
+	}
+
+	_, adminGroupPolicyAttachmentErr := iam.NewGroupPolicyAttachment(ctx, "admin-group-admin-access", &iam.GroupPolicyAttachmentArgs{
+		Group:     adminGroup.Name,
+		PolicyArn: pulumi.String("arn:aws:iam::aws:policy/AdministratorAccess"),
+	})
+
+	if (adminGroupPolicyAttachmentErr != nil) { 
+		return adminGroupPolicyAttachmentErr
+	}
+
+	cooperUser, userErr := iam.NewUser(ctx, "s.cooper", &iam.UserArgs{
+		Tags: pulumi.StringMap{
+			"orelly-course": pulumi.String("true"),
+		},
+	})
+
+	if (userErr != nil) {
+		return userErr
+	}
+
+	_, membershipErr := iam.NewGroupMembership(ctx, "admin-team", &iam.GroupMembershipArgs{
+		Group: adminGroup.Name,
+		Users: pulumi.StringArray{
+			cooperUser.Name,
+		},
+	})
+
+	if (membershipErr != nil) {
+		return membershipErr
+	}
+
+	return nil
 }
 
 func createRole(ctx *pulumi.Context) error {
