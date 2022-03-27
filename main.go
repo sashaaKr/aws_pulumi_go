@@ -14,7 +14,7 @@ func main() {
 	pulumi.Run(func(ctx *pulumi.Context) error {
 		deployAmiErr := deployIAM(ctx)
 
-		if (deployAmiErr != nil) {
+		if deployAmiErr != nil {
 			return deployAmiErr
 		}
 
@@ -118,7 +118,7 @@ func deployIAM(ctx *pulumi.Context) error {
 		Path: pulumi.String("/users/"),
 	})
 
-	if (adminGroupErr != nil) { 
+	if adminGroupErr != nil {
 		return adminGroupErr
 	}
 
@@ -127,7 +127,7 @@ func deployIAM(ctx *pulumi.Context) error {
 		PolicyArn: pulumi.String("arn:aws:iam::aws:policy/AdministratorAccess"),
 	})
 
-	if (adminGroupPolicyAttachmentErr != nil) { 
+	if adminGroupPolicyAttachmentErr != nil {
 		return adminGroupPolicyAttachmentErr
 	}
 
@@ -137,7 +137,7 @@ func deployIAM(ctx *pulumi.Context) error {
 		},
 	})
 
-	if (userErr != nil) {
+	if userErr != nil {
 		return userErr
 	}
 
@@ -148,8 +148,35 @@ func deployIAM(ctx *pulumi.Context) error {
 		},
 	})
 
-	if (membershipErr != nil) {
+	if membershipErr != nil {
 		return membershipErr
+	}
+
+	tmpJSON0, jsonErr := json.Marshal(map[string]interface{}{
+		"Version": "2012-10-17",
+		"Statement": []map[string]interface{}{
+			map[string]interface{}{
+				"Action": []string{
+					"sta:AssumeRole",
+				},
+				"Effect":   "Allow",
+				"Resource": "arn:aws:iam::078521954122:role/cross-account-access-b83a12b", // role from dev-account, should be refactored to use stack
+			},
+		},
+	})
+
+	if jsonErr != nil {
+		return jsonErr
+	}
+
+	json0 := string(tmpJSON0)
+	_, adminGroupInlinePolicyErr := iam.NewGroupPolicy(ctx, "admins-to-dev-access-policy", &iam.GroupPolicyArgs{
+		Group:  adminGroup.Name,
+		Policy: pulumi.String(json0),
+	})
+
+	if adminGroupInlinePolicyErr != nil {
+		return adminGroupInlinePolicyErr
 	}
 
 	return nil
@@ -317,15 +344,15 @@ func createVPC(ctx *pulumi.Context) error {
 				Description: pulumi.String("custom-sg-ingress-80"),
 				FromPort:    pulumi.Int(80),
 				ToPort:      pulumi.Int(80),
-				CidrBlocks: pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
-				Protocol:   pulumi.String("tcp"),
+				CidrBlocks:  pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
+				Protocol:    pulumi.String("tcp"),
 			},
 			&ec2.SecurityGroupIngressArgs{
 				Description: pulumi.String("custom-sg-ingress-443"),
 				FromPort:    pulumi.Int(443),
 				ToPort:      pulumi.Int(443),
-				CidrBlocks: pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
-				Protocol:  pulumi.String("tcp"),
+				CidrBlocks:  pulumi.StringArray{pulumi.String(INTERNET_CIRD)},
+				Protocol:    pulumi.String("tcp"),
 			},
 		},
 		Egress: ec2.SecurityGroupEgressArray{
